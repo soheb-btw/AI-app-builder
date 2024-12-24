@@ -1,36 +1,50 @@
-import React from 'react';
-import { Code2, Eye } from 'lucide-react';
+import React, { useState } from 'react';
+
+interface TabProps {
+  label: string;
+  children: React.ReactNode;
+  onSelect?: () => void;
+}
 
 interface TabViewProps {
-  activeTab: 'code' | 'preview';
-  onTabChange: (tab: 'code' | 'preview') => void;
+  children: React.ReactNode;
 }
 
-export function TabView({ activeTab, onTabChange }: TabViewProps) {
+const Tab: React.FC<TabProps> = ({ children }) => children;
+
+export const TabView: React.FC<TabViewProps> & { Tab: typeof Tab } = ({ children }) => {
+  const [activeTab, setActiveTab] = useState(0);
+  const tabs = React.Children.toArray(children);
+
   return (
-    <div className="flex space-x-2 mb-4">
-      <button
-        onClick={() => onTabChange('code')}
-        className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-          activeTab === 'code'
-            ? 'bg-gray-700 text-gray-100'
-            : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
-        }`}
-      >
-        <Code2 className="w-4 h-4" />
-        Code
-      </button>
-      <button
-        onClick={() => onTabChange('preview')}
-        className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
-          activeTab === 'preview'
-            ? 'bg-gray-700 text-gray-100'
-            : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
-        }`}
-      >
-        <Eye className="w-4 h-4" />
-        Preview
-      </button>
+    <div className="w-full">
+      <div className="flex border-b border-gray-700">
+        {tabs.map((tab: any, index) => (
+          <button
+            key={index}
+            className={`px-4 py-2 ${
+              activeTab === index
+                ? 'text-white border-b-2 border-purple-500'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+            onClick={() => {
+              setActiveTab(index);
+              tab.props.onSelect?.();
+            }}
+          >
+            {tab.props.label}
+          </button>
+        ))}
+      </div>
+      <div className="p-4">
+        {tabs.map((tab, index) => (
+          <div key={index} style={{ display: activeTab === index ? 'block' : 'none' }}>
+            {tab}
+          </div>
+        ))}
+      </div>
     </div>
   );
-}
+};
+
+TabView.Tab = Tab;

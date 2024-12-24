@@ -4,30 +4,42 @@ import { FileItem } from '../types';
 
 interface CodeEditorProps {
   file: FileItem | null;
+  onFileChange?: (updatedFile: FileItem) => void;
 }
 
-export function CodeEditor({ file }: CodeEditorProps) {
+export function CodeEditor({ file, onFileChange }: CodeEditorProps) {
   if (!file) {
     return (
-      <div className="h-full flex items-center justify-center text-gray-400">
+      <div className="flex items-center justify-center text-gray-400">
         Select a file to view its contents
       </div>
     );
   }
 
+  const handleEditorChange = (value: string | undefined) => {
+    if (!value || !onFileChange) return;
+    
+    onFileChange({
+      ...file,
+      content: value
+    });
+  };
+
   return (
-    <Editor
-      height="100%"
+   <div className='flex-1 h-[500px]'>
+     <Editor
       defaultLanguage="typescript"
       theme="vs-dark"
       value={file.content || ''}
+      onChange={handleEditorChange}
       options={{
-        readOnly: true,
         minimap: { enabled: false },
         fontSize: 14,
         wordWrap: 'on',
         scrollBeyondLastLine: false,
+        automaticLayout: true
       }}
     />
+   </div>
   );
 }

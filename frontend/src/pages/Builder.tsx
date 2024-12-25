@@ -12,6 +12,9 @@ import { parseXml } from '../steps';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { FileNode } from '@webcontainer/api';
 import { Loader } from '../components/Loader';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
+import { Button } from '../components/Button';
 
 const MOCK_FILE_CONTENT = `// This is a sample file content
 import React from 'react';
@@ -40,6 +43,8 @@ export function Builder() {
   const [files, setFiles] = useState<FileItem[]>([]);
 
   const [containerLoaded, setContainerLoaded] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<'code' | 'preview'>('code');
 
   useEffect(() => {
     if (steps.length === 0) return;
@@ -223,94 +228,9 @@ export function Builder() {
     });
   }
 
-  function changeFile() {
-    console.log(selectedFile);
-    const content = `import React, { useState } from 'react';
-    import { PlusIcon } from 'lucide-react';
-
-    interface Todo {
-      id: number;
-      text: string;
-      completed: boolean;
-    }
-
-    const App: React.FC = () => {
-      const [todos, setTodos] = useState<Todo[]>([]);
-      const [newTodoText, setNewTodoText] = useState('');
-
-      const addTodo = () => {
-        if (newTodoText.trim() === '') return;
-        setTodos([...todos, { id: Date.now(), text: newTodoText, completed: false }]);
-        setNewTodoText('');
-      };
-
-      const toggleComplete = (id: number) => {
-        setTodos(todos.map((todo) =>
-          todo.id === id ? { ...todo, completed: !todo.completed } : todo
-        ));
-      };
-
-      const deleteTodo = (id: number) => {
-        setTodos(todos.filter((todo) => todo.id !== id));
-      };
-
-      return (
-        <div className="min-h-screen bg-blue-300 p-4">
-          <div className="bg-green-500 rounded-lg shadow-md p-6">
-            <h1 className="text-2xl font-bold mb-4">Todo App</h1>
-            <div className="flex mb-4">
-              <input
-                type="text"
-                value={newTodoText}
-                onChange={(e) => setNewTodoText(e.target.value)}
-                placeholder="Add a new todo..."
-                className="flex-grow px-3 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                onClick={addTodo}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <PlusIcon className="h-5 w-5" />
-              </button>
-            </div>
-            <ul className="divide-y divide-gray-300">
-              {todos.map((todo) => (
-                <li key={todo.id} className="py-2 flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={todo.completed}
-                    onChange={() => toggleComplete(todo.id)}
-                    className="mr-2"
-                  />
-                  <span
-                  >
-                    {todo.text}
-                  </span>
-                  <button
-                    onClick={() => deleteTodo(todo.id)}
-                    className="ml-auto px-2 py-1 bg-red-500 hover:bg-red-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-red-500"
-                  >
-                    Delete
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      );
-    };
-
-    export default App;`
-    webContainer?.fs.writeFile('/src/App.tsx', content);
-  }
 
   const handleFileChange = (updatedFile: FileItem) => {
-    // // First update the WebContainer if initialized
-    // if (webContainer && filesMounted) {
-    //   webContainer.fs.writeFile(updatedFile.path, updatedFile.content || '');
-    // }
 
-    // Helper function to update files recursively
     const updateFileInTree = (files: FileItem[], path: string, newContent: string): FileItem[] => {
       return files.map(file => {
         if (file.path === path) {
@@ -326,22 +246,73 @@ export function Builder() {
       });
     };
 
-    // Update the files state
-    setFiles(prevFiles => 
+    setFiles(prevFiles =>
       updateFileInTree(prevFiles, updatedFile.path, updatedFile.content || '')
     );
   };
 
+  const handleDownload = async () => {
+    const zip = new JSZip();
+
+    const addFilesToZip = (items: FileItem[], currentPath: string = '') => {
+      items.forEach(item => {
+        if (item.type === 'file') {
+          zip.file(currentPath + item.name, item.content || '');
+        } else if (item.type === 'folder' && item.children) {
+          addFilesToZip(item.children, currentPath + item.name + '/');
+        }
+      });
+    };
+
+    addFilesToZip(files);
+
+    try {
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, 'project.zip');
+    } catch (error) {
+      console.error('Error creating zip file:', error);
+    }
+  };
+
+  function onFileSelect(file: FileItem) {
+    setSelectedFile(file);
+  }
+
+  async function handleSend() {
+    const newMessage = {
+      role: "user" as "user",
+      content: userPrompt
+    };
+
+    setLoading(true);
+    const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
+      messages: [...llmMessages, newMessage]
+    });
+    setLoading(false);
+
+    setLlmMessages(x => [...x, newMessage]);
+    setLlmMessages(x => [...x, {
+      role: "assistant",
+      content: stepsResponse.data.response
+    }]);
+
+    setSteps(s => [...s, ...parseXml(stepsResponse.data.response).map(x => ({
+      ...x,
+      status: "pending" as "pending"
+    }))]);
+
+  }
+
   return (
-    <div className="max-h-screen bg-gray-900 flex flex-col">
-      <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
-        <button onClick={changeFile}>change</button>
-        <h1 className="text-xl font-semibold text-gray-100">Website Builder</h1>
-        <p className="text-sm text-gray-400 mt-1">Prompt: {prompt}</p>
+    <div className="min-h-screen bg-[#0a0a0a] relative flex flex-col">
+      <div className='absolute w-[110px] h-[400px] bg-[#29392] mix-blend-overlay top-[-280px] left-[350px] -rotate-45'></div>
+      <header className="flex justify-between border-gray-700 px-6 py-4">
+        <div className="text-xl font-semibold text-gray-100">Website Builder</div>
+        <div className='text-white'>Create Todo App</div>
       </header>
 
-      <div className="flex h-full">
-        <div className='max-h-[300px]'>
+      <div className="flex max-h-[calc(100vh-60px)] overflow-hidden">
+        <div className='w-[300px] min-w-[300px] overflow-y-auto'>
           <StepsList
             steps={steps}
             currentStep={currentStep}
@@ -349,56 +320,64 @@ export function Builder() {
           />
           {(loading || !templateSet) && <Loader />}
           {!(loading || !templateSet) &&
-            <div className='flex'>
+            <div className='flex sticky bottom-0'>
               <textarea value={userPrompt} onChange={(e) => {
                 setPrompt(e.target.value)
               }}></textarea>
-              <button onClick={async () => {
-                const newMessage = {
-                  role: "user" as "user",
-                  content: userPrompt
-                };
-
-                setLoading(true);
-                const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
-                  messages: [...llmMessages, newMessage]
-                });
-                setLoading(false);
-
-                setLlmMessages(x => [...x, newMessage]);
-                setLlmMessages(x => [...x, {
-                  role: "assistant",
-                  content: stepsResponse.data.response
-                }]);
-
-                setSteps(s => [...s, ...parseXml(stepsResponse.data.response).map(x => ({
-                  ...x,
-                  status: "pending" as "pending"
-                }))]);
-
-              }} className='bg-purple-400 px-4'>Send</button>
+              <button onClick={handleSend} className='bg-blue-500 text-white text-sm px-3 py-2 hover:bg-blue-400 transition-colors'>Send</button>
             </div>}
         </div>
 
-        <div className='border-white border w-full'>
-          <div className='flex'>
+        <div className='flex-1 p-5'>
+          <div className='flex bg-[#1e1e1e] h-full rounded-[10px] border border-gray-700'>
             <FileExplorer
               files={files}
-              onFileSelect={setSelectedFile}
+              onFileSelect={onFileSelect}
             />
-            <TabView>
-              <TabView.Tab label="Code">
-                <CodeEditor file={selectedFile} onFileChange={handleFileChange}/>
-              </TabView.Tab>
-              <TabView.Tab label="Preview" onSelect={() => {
-                if (!containerLoaded) {
-                  spawnProcess();
-                  setContainerLoaded(true);
-                }
-              }}>
-                <PreviewFrame url={url} />
-              </TabView.Tab>
-            </TabView>
+            <div className='flex-1 flex flex-col h-full'>
+              <div className="flex border-b border-gray-700 p-2">
+                <div className="relative flex bg-black rounded-lg p-1">
+                  <button
+                    className={`relative z-10 ml-4 px-4 py-2 text-sm font-medium transition-colors duration-200 ${activeTab === 'code' ? 'text-blue-700' : 'text-gray-300'
+                      }`}
+                    onClick={() => setActiveTab('code')}
+                  >
+                    Code
+                  </button>
+                  <button
+                    className={`relative z-10 ml-4 px-6 py-2 text-sm font-medium transition-colors duration-200 ${activeTab === 'preview' ? 'text-blue-700' : 'text-gray-300'
+                      }`}
+                    onClick={() => {
+                      setActiveTab('preview');
+                      if (!containerLoaded) {
+                        spawnProcess();
+                        setContainerLoaded(true);
+                      }
+                    }}
+                  >
+                    Preview
+                  </button>
+                  <div
+                    className={`absolute top-1 bottom-1 rounded-md bg-blue-500/30 transition-transform duration-200 ease-in-out ${activeTab === 'preview' ? 'translate-x-full w-[48%]' : 'translate-x-0 w-[50%]'
+                      }`}
+                  />
+                </div>
+                <div className='ml-auto'>
+                  <Button onClick={handleDownload}>
+                    Download
+                  </Button>
+                </div>
+              </div>
+
+              <div className='flex-1 h-full overflow-auto'>
+                {activeTab === 'code' && (
+                  <CodeEditor file={selectedFile} onFileChange={handleFileChange} />
+                )}
+                {activeTab === 'preview' && (
+                  <PreviewFrame url={url} />
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

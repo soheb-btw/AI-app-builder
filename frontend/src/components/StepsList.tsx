@@ -10,30 +10,29 @@ interface StepsListProps {
 
 export function StepsList({ steps, currentStep, onStepClick }: StepsListProps) {
   return (
-    <div className="bg-gray-900 rounded-lg shadow-lg h-[50%] overflow-y-scroll">
-      <h2 className="text-lg font-semibold mb-4 text-gray-100">Build Steps</h2>
-      <div className="space-y-4">
+    <div className="p-2">
+      <h2 className="text-base font-semibold text-gray-100 h-full">Build Steps</h2>
+      <div className="">
         {steps.map((step, index) => (
           <div
             key={index}
-            className={`p-1 rounded-lg cursor-pointer transition-colors ${
-              currentStep === step.id
+            className={`flex flex-col gap-2 cursor-pointer transition-colors ${currentStep === step.id
                 ? 'bg-gray-800 border border-gray-700'
                 : 'hover:bg-gray-800'
-            }`}
+              }`}
             onClick={() => onStepClick(step.id)}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2 text-sm items-center bg-[#1e1e1e] rounded-md p-1">
               {step.status === 'completed' ? (
-                <CheckCircle className="w-5 h-5 text-green-500" />
+                <CheckCircle className="w-4 h-4 text-green-500" />
               ) : step.status === 'pending' ? (
-                <Clock className="w-5 h-5 text-blue-400" />
+                <Clock className="w-4 h-4 text-blue-400" />
               ) : (
-                <Circle className="w-5 h-5 text-gray-600" />
+                <Circle className="w-4 h-4 text-gray-600" />
               )}
               <h3 className="font-medium text-gray-100">{step.title}</h3>
             </div>
-            <p className="text-sm text-gray-400 mt-2">{step.description}</p>
+            <p className="text-sm text-gray-400">{step.description}</p>
           </div>
         ))}
       </div>

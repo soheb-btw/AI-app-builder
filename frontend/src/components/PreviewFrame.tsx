@@ -6,10 +6,9 @@ interface PreviewFrameProps {
 }
 
 export function PreviewFrame({ url }: PreviewFrameProps) {
-  // In a real implementation, this would compile and render the preview
 
   return (
-    <div className="h-[300px] w-full flex items-center justify-center text-gray-400">
+    <div className="h-full w-full flex items-center justify-center text-gray-400 rounded-lg">
       {!url && <div className="text-center">
         <p className="mb-2">Loading...</p>
       </div>}

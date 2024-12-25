@@ -26,7 +26,7 @@ export function CodeEditor({ file, onFileChange }: CodeEditorProps) {
   };
 
   return (
-   <div className='flex-1 h-[500px]'>
+   <div className='flex-1 h-[100%]'>
      <Editor
       defaultLanguage="typescript"
       theme="vs-dark"

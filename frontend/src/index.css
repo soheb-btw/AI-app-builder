@@ -2,14 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
-*{
+* {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    --gradient-opacity: 0.85;
+    --gradient: radial-gradient(rgba(83, 196, 255, var(--gradient-opacity)) 0%, rgba(43, 166, 255, 0) 100%)
 }
 
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
 
-html, body{
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+html,
+body {
     font-family: Inter;
     background-color: black;
+}
+
+.ray {
+    background: var(--gradient);
 }

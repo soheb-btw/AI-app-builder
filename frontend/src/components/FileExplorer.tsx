@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FolderTree, File, ChevronRight, ChevronDown, Network } from 'lucide-react';
+import { useState } from 'react';
+import { File, ChevronRight, ChevronDown, Network } from 'lucide-react';
 import { FileItem } from '../types';
 
 interface FileExplorerProps {
@@ -63,12 +63,12 @@ function FileNode({ item, depth, onFileClick }: FileNodeProps) {
 
 export function FileExplorer({ files, onFileSelect }: FileExplorerProps) {
   return (
-    <div className="h-full overflow-auto px-2 py-2 text-gray-100 text-sm border-r border-gray-700">
-      <h2 className="flex items-center text-gray-100 border-b border-gray-700 p-2 gap-2">
-        <Network className='w-4 h-4'/>
+    <div className="h-full min-w-[200px] overflow-auto px-2 py-2 text-gray-100 text-sm border-r border-gray-700 scrollbar-hide">
+      <h2 className="flex items-center text-gray-100 border-b border-gray-700 py-[16px] px-2 gap-2">
+        <Network className='w-4 h-4' />
         Files
       </h2>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 pt-2">
         {files.map((file, index) => (
           <FileNode
             key={`${file.path}-${index}`}

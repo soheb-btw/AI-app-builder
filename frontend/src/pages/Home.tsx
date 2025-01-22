@@ -27,7 +27,7 @@ export function Home() {
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a]">
       <LightRays/>
       <div className="text-xl font-semibold text-gray-100 px-5 z-10 absolute py-4 flex items-center tracking-[2px] font-mono">BuildB<span className='text-sm'>🤖</span>t</div>
-      <div className="max-w-4xl mx-auto pt-36 px-4 z-1">
+      <div className="max-w-4xl mx-auto px-4 z-1 grid place-content-center min-h-screen">
         {/* Hero Section */}
         <h1 className="text-5xl font-bold text-white text-center mb-4">
           What do you want to build?
@@ -42,7 +42,7 @@ export function Home() {
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="How can Bolt help you today?"
+              placeholder="How can BuildBot help you today?"
               className="w-full h-32 text-sm bg-[#1e1e1e] text-gray-200 rounded-lg p-4 pl-4 pr-12 
                         border border-gray-700 focus:border-blue-500/30 focus:ring-1 focus:ring-blue-500/30
                         transition-all duration-200 resize-none"
@@ -66,17 +66,11 @@ export function Home() {
               key={index}
               onClick={() => setPrompt(suggestion)}
               className="px-2 text-xs py-1 border border-gray-700 text-gray-300 rounded-full 
-                       hover:bg-gray-800 transition-colors text-sm"
+                       hover:bg-gray-800 transition-colors"
             >
               {suggestion}
             </button>
           ))}
-        </div>
-
-        <div className="text-center">
-          <p className="text-gray-500 mb-3 text-sm">
-            or start with a blank app
-          </p>
         </div>
       </div>
     </div>

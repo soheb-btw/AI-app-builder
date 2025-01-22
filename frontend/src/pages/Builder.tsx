@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { StepsList } from '../components/StepsList';
 import { FileExplorer } from '../components/FileExplorer';
@@ -10,40 +10,49 @@ import { BACKEND_URL } from '../config';
 import { parseXml } from '../steps';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { Loader } from '../components/Loader';
-import JSZip from 'jszip';
-import { saveAs } from 'file-saver';
 import { Button } from '../components/Button';
-import { ArrowRight, Upload } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { SecondaryButton } from '../components/SecondaryButton';
 import LightRays from '../components/LightRays';
 import StepInputBox from '../components/StepInputBox';
 import ToggleCodePreview from '../components/ToggleCodePreview';
+import { useBuilderState } from '../hooks/useBuilderState';
+import { useFileOperations } from '../hooks/useFileOperations';
 
 export function Builder() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { prompt } = location.state as { prompt: string };
-  const [userPrompt, setPrompt] = useState("");
-  const [llmMessages, setLlmMessages] = useState<{ role: "user" | "assistant", content: string; }[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [templateSet, setTemplateSet] = useState(false);
   const [url, setUrl] = useState("");
   const webContainer = useWebContainer();
   const [updatedFile, setUpdatedFile] = useState<FileItem | null>(null);
-  const fileSaved = useRef(false);
-
-  const [currentStep, setCurrentStep] = useState(1);
-  const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
-
-  const [steps, setSteps] = useState<Step[]>([]);
-
-  const [files, setFiles] = useState<FileItem[]>([]);
-
   const [containerLoaded, setContainerLoaded] = useState(false);
+  const [lastPackageJson, setLastPackageJson] = useState<string>("");
 
-  const [activeTab, setActiveTab] = useState<'code' | 'preview'>('code');
+  const {
+    userPrompt,
+    setPrompt,
+    llmMessages,
+    setLlmMessages,
+    loading,
+    setLoading,
+    templateSet,
+    setTemplateSet,
+    currentStep,
+    setCurrentStep,
+    selectedFile,
+    setSelectedFile,
+    steps,
+    setSteps,
+    files,
+    setFiles,
+    error,
+    setError,
+    activeTab,
+    setActiveTab
+  } = useBuilderState();
 
-  const [error, setError] = useState<boolean>(false);
-  const navigate = useNavigate();
+  const { fileSaved, handleFileChange, handleDownload } = useFileOperations();
 
   useEffect(() => {
     if (steps.length === 0) return;
@@ -52,8 +61,8 @@ export function Builder() {
     steps.filter(({ status }) => status === "pending").map(step => {
       updateHappened = true;
       if (step?.type === StepType.CreateFile) {
-        let parsedPath = step.path?.split("/") ?? []; // ["src", "components", "App.tsx"]
-        let currentFileStructure = [...originalFiles]; // {}
+        let parsedPath = step.path?.split("/") ?? []; 
+        let currentFileStructure = [...originalFiles]; 
         const finalAnswerRef = currentFileStructure;
 
         let currentFolder = ""
@@ -76,10 +85,8 @@ export function Builder() {
               file.content = step.code;
             }
           } else {
-            /// in a folder
             const folder = currentFileStructure.find(x => x.path === currentFolder)
             if (!folder) {
-              // create the folder
               currentFileStructure.push({
                 name: currentFolderName,
                 type: 'folder',
@@ -152,6 +159,16 @@ export function Builder() {
     webContainer?.mount(mountStructure);
   }, [files, webContainer]);
 
+  useEffect(() => {
+    const packageFile = files.find(f => f.path === "/package.json");
+    if (packageFile?.content && packageFile.content !== lastPackageJson) {
+      setLastPackageJson(packageFile.content);
+      if (containerLoaded) {
+        spawnProcess();
+      }
+    }
+  }, [files, containerLoaded]);
+
   async function init() {
     try {
       const response = await axios.post(`${BACKEND_URL}/template`, {
@@ -169,6 +186,8 @@ export function Builder() {
         ...x,
         status: "pending"
       })));
+
+
 
       setLoading(true);
       const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
@@ -214,74 +233,30 @@ export function Builder() {
   }, [])
 
   async function spawnProcess() {
-    const installProcess = await webContainer.spawn('npm', ['install']);
-    installProcess.output.pipeTo(new WritableStream({
-      write(data) {
-        console.log(data);
-      }
-    }));
-    await installProcess.exit;
-    const runProcess = await webContainer.spawn('npm', ['run', 'dev']);
-
-
-    runProcess.output.pipeTo(new WritableStream({
-      write(data) {
-        console.log(data);
-      }
-    }))
-
-    // Wait for `server-ready` event
-    webContainer.on('server-ready', (port, url) => {
-      console.log('server-ready', port, url)
-      setUrl(url);
-    });
-  }
-
-
-  const handleFileChange = (updatedFile: FileItem) => {
-    fileSaved.current = false;
-    const updateFileInTree = (files: FileItem[], path: string, newContent: string): FileItem[] => {
-      return files.map(file => {
-        if (file.path === path) {
-          return { ...file, content: newContent };
-        }
-        if (file.type === 'folder' && file.children) {
-          return {
-            ...file,
-            children: updateFileInTree(file.children, path, newContent)
-          };
-        }
-        return file;
-      });
-    };
-
-    setFiles(prevFiles =>
-      updateFileInTree(prevFiles, updatedFile.path, updatedFile.content || '')
-    );
-  };
-
-  const handleDownload = async () => {
-    const zip = new JSZip();
-
-    const addFilesToZip = (items: FileItem[], currentPath: string = '') => {
-      items.forEach(item => {
-        if (item.type === 'file') {
-          zip.file(currentPath + item.name, item.content || '');
-        } else if (item.type === 'folder' && item.children) {
-          addFilesToZip(item.children, currentPath + item.name + '/');
-        }
-      });
-    };
-
-    addFilesToZip(files);
-
     try {
-      const content = await zip.generateAsync({ type: 'blob' });
-      saveAs(content, 'project.zip');
+      const installProcess = await webContainer?.spawn('npm', ['install']);
+      installProcess?.output.pipeTo(new WritableStream({
+        write(data) {
+          console.log(data);
+        }
+      }));
+      await installProcess?.exit;
+      
+      const runProcess = await webContainer?.spawn('npm', ['run', 'dev']);
+      runProcess?.output.pipeTo(new WritableStream({
+        write(data) {
+          console.log(data);
+        }
+      }));
+
+      webContainer?.on('server-ready', (port, url) => {
+        console.log('server-ready', port, url);
+        setUrl(url);
+      });
     } catch (error) {
-      console.error('Error creating zip file:', error);
+      console.error('Error running npm commands:', error);
     }
-  };
+  }
 
   function onFileSelect(file: FileItem) {
     fileSaved.current = false;
@@ -349,14 +324,14 @@ export function Builder() {
     <div className="min-h-screen bg-[#0a0a0a] relative flex flex-col">
       <LightRays />
       <header className="flex items-center justify-between border-b border-gray-700 px-6 py-4 z-10">
-        <div className="text-xl font-semibold text-gray-100 flex items-center tracking-[2px] font-mono">BuildB<span className='text-sm'>🤖</span>t</div>
-        <SecondaryButton onClick={handleDownload}>
+        <div onClick={() => navigate('/')} className="cursor-pointer text-xl font-semibold text-gray-100 flex items-center tracking-[2px] font-mono">BuildB<span className='text-sm'>🤖</span>t</div>
+        <SecondaryButton onClick={() => handleDownload(files)}>
           <Upload className='w-4 h-4' /> Export
         </SecondaryButton>
       </header>
 
       <div className="flex max-h-[calc(100vh-65px)] min-h-[calc(100vh-65px)] overflow-hidden z-10">
-        <div className='w-[300px] min-w-[300px] overflow-y-auto scrollbar-hide'>
+        <div className='w-[300px] min-w-[300px] overflow-y-auto scrollbar-hide flex flex-col justify-between'>
           {!(loading || !templateSet) && <StepsList steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />}
           {(loading || !templateSet) && <Loader />}
           {!(loading || !templateSet) && <StepInputBox userPrompt={userPrompt} setPrompt={setPrompt} handleSend={handleSend} />}
@@ -365,15 +340,15 @@ export function Builder() {
         <div className='flex-1 p-5'>
           <div className='flex bg-[#1e1e1e] h-full rounded-[10px] border border-gray-700'>
             <FileExplorer files={files} onFileSelect={onFileSelect} />
-            <div className='flex-1 flex flex-col h-full'>
+            <div className='flex-1 flex flex-col h-full px-2'>
               <div className="flex border-b border-gray-700 p-2 items-center gap-2">
                 <ToggleCodePreview activeTab={activeTab} setActiveTab={setActiveTab} loading={loading} templateSet={templateSet} spawnProcess={spawnProcess} containerLoaded={containerLoaded} setContainerLoaded={setContainerLoaded} />
                 <div className='ml-auto'>
-                  <Button onClick={() => handleFileChange(updatedFile)}>Save{fileSaved.current && <span className='rounded-[50%] bg-yellow-500 ml-2 w-2 h-2 inline-block'></span>}</Button>
+                 {updatedFile && <Button onClick={() => handleFileChange(files, updatedFile, setFiles)}>Save{fileSaved.current && <span className='rounded-[50%] bg-yellow-500 ml-2 w-2 h-2 inline-block'></span>}</Button>}
                 </div>
               </div>
 
-              <div className='flex-1 h-full overflow-auto'>
+              <div className='flex-1 h-full overflow-auto py-2'>
                 {activeTab === 'code' && (
                   <CodeEditor file={selectedFile} fileSaved={fileSaved} onFileChange={setUpdatedFile} />
                 )}

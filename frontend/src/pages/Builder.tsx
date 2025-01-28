@@ -237,7 +237,7 @@ export function Builder() {
       const installProcess = await webContainer?.spawn('npm', ['install']);
       installProcess?.output.pipeTo(new WritableStream({
         write(data) {
-          console.log(data);
+          // console.log(data);
         }
       }));
       await installProcess?.exit;
@@ -245,12 +245,12 @@ export function Builder() {
       const runProcess = await webContainer?.spawn('npm', ['run', 'dev']);
       runProcess?.output.pipeTo(new WritableStream({
         write(data) {
-          console.log(data);
+          // console.log(data);
         }
       }));
 
       webContainer?.on('server-ready', (port, url) => {
-        console.log('server-ready', port, url);
+        // console.log('server-ready', port, url);
         setUrl(url);
       });
     } catch (error) {

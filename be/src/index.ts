@@ -12,14 +12,16 @@ const anthropic = new Anthropic();
 const app = express();
 app.use(cors())
 app.use(express.json())
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const modelName = "gemini-flash-latest";
 
 app.post("/template", async (req, res) => {
   try {
     const prompt = req.body.prompt;
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: modelName,
       systemInstruction: `Return either node or react based on what do you think this project should be. Only return a single word either 'node' or 'react'. Do not return anything extra`,
     });
 
@@ -53,9 +55,9 @@ app.post("/chat", async (req, res) => {
   try {
     const messages = req.body.messages;
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: modelName,
       systemInstruction: getSystemPrompt(),
     });
     

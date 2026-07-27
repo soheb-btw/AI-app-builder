@@ -5,10 +5,38 @@ import { useCallback, useMemo } from 'react';
 interface CodeEditorProps {
   file: FileItem | null;
   onFileChange?: (updatedFile: FileItem) => void;
-  fileSaved: React.MutableRefObject<boolean>;
+  hasUnsavedChanges: React.MutableRefObject<boolean>;
 }
 
-export function CodeEditor({ file, onFileChange, fileSaved }: CodeEditorProps) {
+// Bug #12 fix: Detect language from file extension
+function getLanguageFromPath(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase();
+  const languageMap: Record<string, string> = {
+    ts: 'typescript',
+    tsx: 'typescript',
+    js: 'javascript',
+    jsx: 'javascript',
+    json: 'json',
+    css: 'css',
+    scss: 'scss',
+    html: 'html',
+    htm: 'html',
+    md: 'markdown',
+    yaml: 'yaml',
+    yml: 'yaml',
+    xml: 'xml',
+    svg: 'xml',
+    py: 'python',
+    sh: 'shell',
+    bash: 'shell',
+    env: 'plaintext',
+    txt: 'plaintext',
+    gitignore: 'plaintext',
+  };
+  return languageMap[ext || ''] || 'plaintext';
+}
+
+export function CodeEditor({ file, onFileChange, hasUnsavedChanges }: CodeEditorProps) {
 
   const options = useMemo(() => ({
     minimap: { enabled: false },
@@ -35,9 +63,11 @@ export function CodeEditor({ file, onFileChange, fileSaved }: CodeEditorProps) {
     );
   }
 
+  const language = getLanguageFromPath(file.path || file.name);
+
   const handleEditorChange = (value: string | undefined) => {
     if (!value || !onFileChange) return;
-    fileSaved.current = true;
+    hasUnsavedChanges.current = true;
     onFileChange({
       ...file,
       content: value
@@ -48,8 +78,9 @@ export function CodeEditor({ file, onFileChange, fileSaved }: CodeEditorProps) {
   return (
     <div className='flex-1 h-[99%] overflow-hidden'>
       <Editor
+        key={file.path}
         beforeMount={handleBeforeMount}
-        defaultLanguage="typescript"
+        language={language}
         theme="vs-dark"
         value={file.content || ''}
         onChange={handleEditorChange}

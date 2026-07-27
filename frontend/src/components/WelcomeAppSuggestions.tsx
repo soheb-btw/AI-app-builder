@@ -19,8 +19,8 @@ const WelcomeAppSuggestions = () => {
 
   return (
     <div className="text-white flex">
-      {suggestions && suggestions.map(suggestion =>
-        <div className="whitespace-nowrap break-words">{suggestion}</div>
+      {suggestions && suggestions.map((suggestion, index) =>
+        <div key={index} className="whitespace-nowrap break-words">{suggestion}</div>
       )}
     </div>
   )

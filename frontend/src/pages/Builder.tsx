@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { StepsList } from '../components/StepsList';
 import { FileExplorer } from '../components/FileExplorer';
@@ -22,16 +22,27 @@ import { useFileOperations } from '../hooks/useFileOperations';
 export function Builder() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { prompt } = location.state as { prompt: string };
+
+  // Bug #2 fix: Safe access to location.state — redirect if missing
+  const prompt = (location.state as { prompt?: string } | null)?.prompt;
+  useEffect(() => {
+    if (!prompt) {
+      navigate('/', { replace: true });
+    }
+  }, [prompt, navigate]);
+
   const [url, setUrl] = useState("");
   const webContainer = useWebContainer();
   const [updatedFile, setUpdatedFile] = useState<FileItem | null>(null);
   const [containerLoaded, setContainerLoaded] = useState(false);
   const [lastPackageJson, setLastPackageJson] = useState<string>("");
+  const isSpawning = useRef(false);
+  const [buildLogs, setBuildLogs] = useState<string[]>([]);
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
   const {
     userPrompt,
-    setPrompt,
+    setPrompt: setUserPrompt,
     llmMessages,
     setLlmMessages,
     loading,
@@ -52,69 +63,83 @@ export function Builder() {
     setActiveTab
   } = useBuilderState();
 
-  const { fileSaved, handleFileChange, handleDownload } = useFileOperations();
+  const { hasUnsavedChanges, handleFileChange, handleDownload } = useFileOperations();
 
+  // Bug #3 fix: Break infinite loop by only depending on steps, and using
+  // a functional update for files so `files` is not in the dep array
   useEffect(() => {
     if (steps.length === 0) return;
-    let originalFiles = [...files];
-    let updateHappened = false;
-    steps.filter(({ status }) => status === "pending").map(step => {
-      updateHappened = true;
-      if (step?.type === StepType.CreateFile) {
-        let parsedPath = step.path?.split("/") ?? []; 
-        let currentFileStructure = [...originalFiles]; 
-        const finalAnswerRef = currentFileStructure;
 
-        let currentFolder = ""
-        while (parsedPath.length) {
-          currentFolder = `${currentFolder}/${parsedPath[0]}`;
-          const currentFolderName = parsedPath[0];
-          parsedPath = parsedPath.slice(1);
+    const pendingSteps = steps.filter(({ status }) => status === "pending");
+    if (pendingSteps.length === 0) return;
 
-          if (!parsedPath.length) {
-            // final file
-            const file = currentFileStructure.find(x => x.path === currentFolder)
-            if (!file) {
-              currentFileStructure.push({
-                name: currentFolderName,
-                type: 'file',
-                path: currentFolder,
-                content: step.code
-              })
+    setFiles(currentFiles => {
+      let originalFiles = [...currentFiles];
+
+      pendingSteps.forEach(step => {
+        if (step?.type === StepType.CreateFile) {
+          let parsedPath = step.path?.split("/") ?? [];
+          let currentFileStructure = [...originalFiles];
+          const finalAnswerRef = currentFileStructure;
+
+          let currentFolder = "";
+          while (parsedPath.length) {
+            currentFolder = `${currentFolder}/${parsedPath[0]}`;
+            const currentFolderName = parsedPath[0];
+            parsedPath = parsedPath.slice(1);
+
+            if (!parsedPath.length) {
+              // final file
+              const file = currentFileStructure.find(x => x.path === currentFolder);
+              if (!file) {
+                currentFileStructure.push({
+                  name: currentFolderName,
+                  type: 'file',
+                  path: currentFolder,
+                  content: step.code
+                });
+              } else {
+                file.content = step.code;
+              }
             } else {
-              file.content = step.code;
+              const folder = currentFileStructure.find(x => x.path === currentFolder);
+              if (!folder) {
+                currentFileStructure.push({
+                  name: currentFolderName,
+                  type: 'folder',
+                  path: currentFolder,
+                  children: []
+                });
+              }
+              currentFileStructure = currentFileStructure.find(x => x.path === currentFolder)!.children!;
             }
-          } else {
-            const folder = currentFileStructure.find(x => x.path === currentFolder)
-            if (!folder) {
-              currentFileStructure.push({
-                name: currentFolderName,
-                type: 'folder',
-                path: currentFolder,
-                children: []
-              })
-            }
-
-            currentFileStructure = currentFileStructure.find(x => x.path === currentFolder)!.children!;
           }
+          originalFiles = finalAnswerRef;
         }
-        originalFiles = finalAnswerRef;
-      }
+      });
 
-    })
+      return originalFiles;
+    });
 
-    if (updateHappened) {
+    // Bug #22 fix: Only set selectedFile if nothing is currently selected
+    setSelectedFile(prev => {
+      if (prev) return prev;
+      // Will pick the first file once files state updates; for now return null
+      return null;
+    });
 
-      setFiles(originalFiles)
-      setSelectedFile(originalFiles[0])
-      setSteps(steps => steps.map((s: Step) => {
-        return {
-          ...s,
-          status: "completed"
-        }
-      }))
+    setSteps(prevSteps => prevSteps.map((s: Step) => ({
+      ...s,
+      status: "completed" as const,
+    })));
+  }, [steps]);
+
+  // Bug #22 fix (part 2): Select first file only when files change and nothing selected
+  useEffect(() => {
+    if (files.length > 0 && !selectedFile) {
+      setSelectedFile(files[0]);
     }
-  }, [steps, files]);
+  }, [files, selectedFile]);
 
   useEffect(() => {
     const createMountStructure = (files: FileItem[]): Record<string, any> => {
@@ -122,7 +147,6 @@ export function Builder() {
 
       const processFile = (file: FileItem, isRootFolder: boolean) => {
         if (file.type === 'folder') {
-          // For folders, create a directory entry
           mountStructure[file.name] = {
             directory: file.children ?
               Object.fromEntries(
@@ -138,7 +162,6 @@ export function Builder() {
               }
             };
           } else {
-
             return {
               file: {
                 contents: file.content || ''
@@ -146,7 +169,6 @@ export function Builder() {
             };
           }
         }
-
         return mountStructure[file.name];
       };
 
@@ -155,7 +177,6 @@ export function Builder() {
     };
 
     const mountStructure = createMountStructure(files);
-
     webContainer?.mount(mountStructure);
   }, [files, webContainer]);
 
@@ -170,6 +191,7 @@ export function Builder() {
   }, [files, containerLoaded]);
 
   async function init() {
+    if (!prompt) return;
     try {
       const response = await axios.post(`${BACKEND_URL}/template`, {
         prompt: prompt.trim()
@@ -186,8 +208,6 @@ export function Builder() {
         ...x,
         status: "pending"
       })));
-
-
 
       setLoading(true);
       const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
@@ -232,45 +252,75 @@ export function Builder() {
     }
   }, [])
 
-  async function spawnProcess() {
+  const stripAnsi = (str: string) =>
+    str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+
+  const appendLog = useCallback((line: string) => {
+    const clean = stripAnsi(line).trim();
+    if (!clean) return;
+    // Filter out npm spinner characters
+    if (/^[\\|/\-]+$/.test(clean)) return;
+    setBuildLogs(prev => [...prev.slice(-200), clean]); // keep last 200 lines
+  }, []);
+
+  // Auto-scroll logs
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [buildLogs]);
+
+  const spawnProcess = useCallback(async () => {
+    if (isSpawning.current || !webContainer) return;
+    isSpawning.current = true;
+    setBuildLogs([]);
+
     try {
-      const installProcess = await webContainer?.spawn('npm', ['install']);
-      installProcess?.output.pipeTo(new WritableStream({
+      appendLog('$ npm install');
+      const installProcess = await webContainer.spawn('npm', ['install']);
+      installProcess.output.pipeTo(new WritableStream({
         write(data) {
-          // console.log(data);
+          appendLog(data);
         }
       }));
-      await installProcess?.exit;
-      
-      const runProcess = await webContainer?.spawn('npm', ['run', 'dev']);
-      runProcess?.output.pipeTo(new WritableStream({
+      await installProcess.exit;
+
+      appendLog('\n$ npm run dev');
+      const runProcess = await webContainer.spawn('npm', ['run', 'dev']);
+      runProcess.output.pipeTo(new WritableStream({
         write(data) {
-          // console.log(data);
+          appendLog(data);
         }
       }));
 
-      webContainer?.on('server-ready', (port, url) => {
-        // console.log('server-ready', port, url);
+      webContainer.on('server-ready', (_port, url) => {
+        appendLog(`\n✓ Server ready at ${url}`);
         setUrl(url);
       });
     } catch (error) {
       console.error('Error running npm commands:', error);
+      appendLog(`\n✗ Error: ${error}`);
+    } finally {
+      isSpawning.current = false;
     }
-  }
+  }, [webContainer, appendLog]);
 
   function onFileSelect(file: FileItem) {
-    fileSaved.current = false;
+    hasUnsavedChanges.current = false;
     setActiveTab('code');
     setSelectedFile(file);
   }
 
+  // Bug #23 fix: Clear the prompt input after sending
   async function handleSend() {
+    const messageText = userPrompt.trim();
+    if (!messageText) return;
+
     try {
       const newMessage = {
         role: "user" as const,
-        content: userPrompt
+        content: messageText
       };
-  
+
+      setUserPrompt("");
       setLoading(true);
       const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
         messages: [...llmMessages, newMessage]
@@ -301,6 +351,11 @@ export function Builder() {
         navigate('/');
       }, 3000);
     }
+  }
+
+  // Bug #2 fix: Early return while redirecting
+  if (!prompt) {
+    return null;
   }
 
   if (error) {
@@ -334,7 +389,7 @@ export function Builder() {
         <div className='w-[300px] min-w-[300px] overflow-y-auto scrollbar-hide flex flex-col justify-between'>
           {!(loading || !templateSet) && <StepsList steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />}
           {(loading || !templateSet) && <Loader />}
-          {!(loading || !templateSet) && <StepInputBox userPrompt={userPrompt} setPrompt={setPrompt} handleSend={handleSend} />}
+          {!(loading || !templateSet) && <StepInputBox userPrompt={userPrompt} setPrompt={setUserPrompt} handleSend={handleSend} />}
         </div>
 
         <div className='flex-1 p-5'>
@@ -344,16 +399,33 @@ export function Builder() {
               <div className="flex border-b border-gray-700 p-2 items-center gap-2">
                 <ToggleCodePreview activeTab={activeTab} setActiveTab={setActiveTab} loading={loading} templateSet={templateSet} spawnProcess={spawnProcess} containerLoaded={containerLoaded} setContainerLoaded={setContainerLoaded} />
                 <div className='ml-auto'>
-                 {updatedFile && <Button onClick={() => handleFileChange(files, updatedFile, setFiles)}>Save{fileSaved.current && <span className='rounded-[50%] bg-yellow-500 ml-2 w-2 h-2 inline-block'></span>}</Button>}
+                 {updatedFile && <Button onClick={() => handleFileChange(files, updatedFile, setFiles)}>Save{hasUnsavedChanges.current && <span className='rounded-[50%] bg-yellow-500 ml-2 w-2 h-2 inline-block'></span>}</Button>}
                 </div>
               </div>
 
               <div className='flex-1 h-full overflow-auto py-2'>
                 {activeTab === 'code' && (
-                  <CodeEditor file={selectedFile} fileSaved={fileSaved} onFileChange={setUpdatedFile} />
+                  <CodeEditor file={selectedFile} hasUnsavedChanges={hasUnsavedChanges} onFileChange={setUpdatedFile} />
                 )}
                 {activeTab === 'preview' && (
                   <PreviewFrame url={url} />
+                )}
+                {activeTab === 'terminal' && (
+                  <div className='h-full bg-[#0d0d0d] rounded-lg p-3 overflow-auto font-mono text-xs text-gray-300'>
+                    {buildLogs.length === 0 && (
+                      <div className='text-gray-500 italic'>No build logs yet. Click Preview to start building.</div>
+                    )}
+                    {buildLogs.map((line, i) => (
+                      <div key={i} className={`whitespace-pre-wrap leading-5 ${
+                        line.startsWith('$') ? 'text-blue-400 font-semibold mt-2' :
+                        line.startsWith('✓') ? 'text-green-400' :
+                        line.startsWith('✗') ? 'text-red-400' :
+                        line.includes('WARN') ? 'text-yellow-400' :
+                        line.includes('ERR') ? 'text-red-400' : ''
+                      }`}>{line}</div>
+                    ))}
+                    <div ref={logsEndRef} />
+                  </div>
                 )}
               </div>
             </div>

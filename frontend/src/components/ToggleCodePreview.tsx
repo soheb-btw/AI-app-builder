@@ -1,6 +1,8 @@
+import { Terminal } from 'lucide-react';
+
 interface ToggleCodePreviewProps {  
     activeTab: string;
-    setActiveTab: (tab: 'code' | 'preview') => void;
+    setActiveTab: (tab: 'code' | 'preview' | 'terminal') => void;
     loading: boolean;
     templateSet: boolean;
     spawnProcess: () => void;
@@ -9,20 +11,22 @@ interface ToggleCodePreviewProps {
 }
 
 export default function ToggleCodePreview({ activeTab, setActiveTab, loading, templateSet, spawnProcess, containerLoaded, setContainerLoaded }: ToggleCodePreviewProps) {
+    const isDisabled = loading || !templateSet;
+
     return (
-        <div className="relative flex bg-black rounded-lg p-1">
+        <div className="relative flex bg-black rounded-lg p-1 gap-1">
             <button
-                className={`relative z-10 ml-4 px-4 py-2 text-sm font-medium transition-colors duration-200 ${activeTab === 'code' ? 'text-blue-700' : 'text-gray-300'
+                className={`relative z-10 px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${activeTab === 'code' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-gray-200'
                     }`}
                 onClick={() => setActiveTab('code')}
             >
                 Code
             </button>
             <button
-                className={`relative z-10 ml-4 px-6 py-2 text-sm font-medium transition-colors duration-200 ${(loading || !templateSet) ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === 'preview' ? 'text-blue-700' : 'text-gray-300'
+                className={`relative z-10 px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === 'preview' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-gray-200'
                     }`}
                 onClick={() => {
-                    if ((loading || !templateSet)) return;
+                    if (isDisabled) return;
                     setActiveTab('preview');
                     if (!containerLoaded) {
                         spawnProcess();
@@ -32,10 +36,14 @@ export default function ToggleCodePreview({ activeTab, setActiveTab, loading, te
             >
                 Preview
             </button>
-            <div
-                className={`absolute top-1 bottom-1 rounded-md bg-blue-500/30 transition-transform duration-200 ease-in-out ${activeTab === 'preview' ? 'translate-x-full w-[48%]' : 'translate-x-0 w-[50%]'
+            <button
+                className={`relative z-10 px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 flex items-center gap-1.5 ${activeTab === 'terminal' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-gray-200'
                     }`}
-            />
+                onClick={() => setActiveTab('terminal')}
+            >
+                <Terminal className="w-3.5 h-3.5" />
+                Terminal
+            </button>
         </div>
     );
 }   

@@ -4,10 +4,12 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
 export function useFileOperations() {
-  const fileSaved = useRef(false);
+  // Bug #16 fix: Renamed from `fileSaved` (which was semantically inverted)
+  // to `hasUnsavedChanges` — true when user has edited but not yet saved
+  const hasUnsavedChanges = useRef(false);
 
   const handleFileChange = (files: FileItem[], updatedFile: FileItem, setFiles: React.Dispatch<React.SetStateAction<FileItem[]>>) => {
-    fileSaved.current = false;
+    hasUnsavedChanges.current = false;
     const updateFileInTree = (files: FileItem[], path: string, newContent: string): FileItem[] => {
       return files.map(file => {
         if (file.path === path) {
@@ -52,7 +54,7 @@ export function useFileOperations() {
   };
 
   return {
-    fileSaved,
+    hasUnsavedChanges,
     handleFileChange,
     handleDownload
   };

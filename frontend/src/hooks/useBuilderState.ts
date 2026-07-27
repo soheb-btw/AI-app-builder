@@ -11,7 +11,7 @@ export function useBuilderState() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [error, setError] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'code' | 'preview'>('code');
+  const [activeTab, setActiveTab] = useState<'code' | 'preview' | 'terminal'>('code');
 
   return {
     userPrompt,

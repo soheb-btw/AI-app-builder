@@ -16,11 +16,15 @@ export function Home() {
   const [prompt, setPrompt] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoToBuilder = () => {
     if (prompt.trim()) {
       navigate('/builder', { state: { prompt: prompt } });
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleGoToBuilder();
   };
 
   return (
@@ -52,7 +56,7 @@ export function Home() {
                 type="button"
                 className="p-2 hover:bg-gray-700 rounded-md transition-colors"
                 title="Create"
-                onClick={handleSubmit}
+                onClick={handleGoToBuilder}
               >
                 <ArrowRight className='w-6 h-6 text-white' />
               </button>

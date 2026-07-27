@@ -1,7 +1,8 @@
-import { ArrowRight, Sparkles, Code2, Layout, Database, ShoppingBag, Music, Building2, Terminal } from 'lucide-react';
+import { ArrowRight, Sparkles, Code2, Layout, Database, ShoppingBag, Music, Building2, Terminal, Key } from 'lucide-react';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LightRays from '../components/LightRays';
+import { SettingsModal, getStoredApiKey } from '../components/SettingsModal';
 
 interface SuggestionItem {
   label: string;
@@ -20,12 +21,19 @@ const TEMPLATE_SUGGESTIONS: SuggestionItem[] = [
 
 export function Home() {
   const [prompt, setPrompt] = useState('');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleGoToBuilder = () => {
-    if (prompt.trim()) {
-      navigate('/builder', { state: { prompt: prompt.trim() } });
+    if (!prompt.trim()) return;
+
+    const apiKey = getStoredApiKey();
+    if (!apiKey) {
+      setIsSettingsOpen(true);
+      return;
     }
+
+    navigate('/builder', { state: { prompt: prompt.trim() } });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -39,6 +47,8 @@ export function Home() {
       handleGoToBuilder();
     }
   };
+
+  const hasKey = Boolean(getStoredApiKey());
 
   return (
     <div className="min-h-screen bg-[#030712] bg-grid-pattern relative flex flex-col justify-between overflow-hidden">
@@ -55,10 +65,24 @@ export function Home() {
           </div>
           <span>BuildB<span className="text-blue-400">🤖</span>t</span>
         </div>
+        
         <div className="flex items-center gap-3">
-          <span className="text-xs px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1.5 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-            WebContainer AI Engine
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-2 transition-all cursor-pointer ${
+              hasKey
+                ? 'bg-slate-900/80 border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-400 animate-pulse'
+            }`}
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span>{hasKey ? 'API Key Configured' : 'Set API Key'}</span>
+            <span className={`w-2 h-2 rounded-full ${hasKey ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+          </button>
+
+          <span className="text-xs px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+            BYOK Engine
           </span>
         </div>
       </header>
@@ -69,7 +93,7 @@ export function Home() {
         {/* Badge */}
         <div className="mb-6 px-4 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 backdrop-blur-md flex items-center gap-2 text-xs text-slate-300 shadow-xl">
           <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" style={{ animationDuration: '4s' }} />
-          <span>Generate, run, and edit full-stack apps directly in your browser</span>
+          <span>Bring your own OpenRouter API key — zero server billing risk</span>
         </div>
 
         {/* Hero Section */}
@@ -148,6 +172,9 @@ export function Home() {
           </div>
         </div>
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
       {/* Footer */}
       <footer className="w-full py-4 text-center text-xs text-slate-600 border-t border-white/5 z-20 backdrop-blur-md">

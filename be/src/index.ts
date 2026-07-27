@@ -15,23 +15,48 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 
-const openrouter = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY || "",
-  defaultHeaders: {
-    "X-Title": "BuildBot",
-  },
-});
+/* 
+ * TEMPORARILY COMMENTED OUT SERVER-SIDE API KEY USAGE:
+ * The backend now enforces Bring-Your-Own-Key (BYOK) from the frontend header 'x-openrouter-key'.
+ *
+ * const openrouter = new OpenAI({
+ *   baseURL: "https://openrouter.ai/api/v1",
+ *   apiKey: process.env.OPENROUTER_API_KEY || "",
+ *   defaultHeaders: {
+ *     "X-Title": "BuildBot",
+ *   },
+ * });
+ */
 
-const MODELS = (process.env.OPENROUTER_MODELS || "google/gemini-2.0-flash-001")
+const MODELS = (process.env.OPENROUTER_MODELS || "google/gemini-2.5-flash-lite,anthropic/claude-haiku-4.5,meta-llama/llama-3-8b-instruct:free")
   .split(",")
   .map((m) => m.trim());
 const DEFAULT_MODEL = MODELS[0];
 const MAX_TOKENS = parseInt(process.env.MAX_TOKENS || "10000", 10);
 const PORT = parseInt(process.env.PORT || "3001", 10);
 
+// Helper to construct OpenRouter client per request from user header
+function getOpenRouterClient(userApiKey: string) {
+  return new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: userApiKey,
+    defaultHeaders: {
+      "X-Title": "BuildBot",
+    },
+  });
+}
+
 app.post("/template", async (req, res) => {
   try {
+    const userApiKey = req.headers["x-openrouter-key"] as string;
+    const requestedModel = (req.headers["x-openrouter-model"] as string) || DEFAULT_MODEL;
+
+    // Enforce user API key from frontend
+    if (!userApiKey || !userApiKey.trim()) {
+      res.status(401).json({ message: "OpenRouter API Key is required. Please set your API key in the app settings." });
+      return;
+    }
+
     const prompt = req.body.prompt;
 
     // Input validation
@@ -40,8 +65,10 @@ app.post("/template", async (req, res) => {
       return;
     }
 
+    const openrouter = getOpenRouterClient(userApiKey.trim());
+
     const result = await openrouter.chat.completions.create({
-      model: DEFAULT_MODEL,
+      model: requestedModel,
       max_tokens: MAX_TOKENS,
       messages: [
         {
@@ -79,14 +106,24 @@ app.post("/template", async (req, res) => {
     }
 
     res.status(403).json({ message: `Unexpected model response: ${answer}` });
-  } catch (error) {
-    console.error("Template endpoint error:", error);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (error: any) {
+    console.error("Template endpoint error:", error?.message || error);
+    const statusCode = error?.status || error?.statusCode || 500;
+    res.status(statusCode).json({ message: error?.message || "Internal server error" });
   }
 });
 
 app.post("/chat", async (req, res) => {
   try {
+    const userApiKey = req.headers["x-openrouter-key"] as string;
+    const requestedModel = (req.headers["x-openrouter-model"] as string) || DEFAULT_MODEL;
+
+    // Enforce user API key from frontend
+    if (!userApiKey || !userApiKey.trim()) {
+      res.status(401).json({ message: "OpenRouter API Key is required. Please set your API key in the app settings." });
+      return;
+    }
+
     const messages = req.body.messages;
 
     // Input validation
@@ -94,6 +131,8 @@ app.post("/chat", async (req, res) => {
       res.status(400).json({ message: "A non-empty 'messages' array is required." });
       return;
     }
+
+    const openrouter = getOpenRouterClient(userApiKey.trim());
 
     // Build OpenAI-compatible messages with system prompt
     const chatMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
@@ -105,7 +144,7 @@ app.post("/chat", async (req, res) => {
     ];
 
     const result = await openrouter.chat.completions.create({
-      model: DEFAULT_MODEL,
+      model: requestedModel,
       max_tokens: MAX_TOKENS,
       messages: chatMessages,
     });
@@ -115,9 +154,10 @@ app.post("/chat", async (req, res) => {
     res.json({
       response: response,
     });
-  } catch (error) {
-    console.error("Chat endpoint error:", error);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (error: any) {
+    console.error("Chat endpoint error:", error?.message || error);
+    const statusCode = error?.status || error?.statusCode || 500;
+    res.status(statusCode).json({ message: error?.message || "Internal server error" });
   }
 });
 

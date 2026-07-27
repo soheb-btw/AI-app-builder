@@ -11,12 +11,13 @@ import { parseXml } from '../steps';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { Loader } from '../components/Loader';
 import { Button } from '../components/Button';
-import { Download, Terminal, ArrowLeft, Save, Sparkles, AlertCircle } from 'lucide-react';
+import { Download, Terminal, ArrowLeft, Save, Sparkles, AlertCircle, Key } from 'lucide-react';
 import LightRays from '../components/LightRays';
 import StepInputBox from '../components/StepInputBox';
 import ToggleCodePreview from '../components/ToggleCodePreview';
 import { useBuilderState } from '../hooks/useBuilderState';
 import { useFileOperations } from '../hooks/useFileOperations';
+import { SettingsModal, getStoredApiKey, getStoredModel } from '../components/SettingsModal';
 
 export function Builder() {
   const location = useLocation();
@@ -37,6 +38,7 @@ export function Builder() {
   const [lastPackageJson, setLastPackageJson] = useState<string>("");
   const isSpawning = useRef(false);
   const [buildLogs, setBuildLogs] = useState<string[]>([]);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -63,6 +65,13 @@ export function Builder() {
   } = useBuilderState();
 
   const { hasUnsavedChanges, handleFileChange, handleDownload } = useFileOperations();
+
+  const getHeaders = () => {
+    return {
+      'x-openrouter-key': getStoredApiKey(),
+      'x-openrouter-model': getStoredModel()
+    };
+  };
 
   // Break infinite loop by only depending on steps
   useEffect(() => {
@@ -185,9 +194,17 @@ export function Builder() {
   async function init() {
     if (!prompt) return;
     try {
-      const response = await axios.post(`${BACKEND_URL}/template`, {
-        prompt: prompt.trim()
-      });
+      const headers = getHeaders();
+      if (!headers['x-openrouter-key']) {
+        setIsSettingsOpen(true);
+        return;
+      }
+
+      const response = await axios.post(
+        `${BACKEND_URL}/template`, 
+        { prompt: prompt.trim() },
+        { headers }
+      );
 
       if (!response.data) {
         throw new Error('No data received from template endpoint');
@@ -202,12 +219,16 @@ export function Builder() {
       })));
 
       setLoading(true);
-      const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
-        messages: [...prompts, prompt].map(content => ({
-          role: "user",
-          content
-        }))
-      });
+      const stepsResponse = await axios.post(
+        `${BACKEND_URL}/chat`, 
+        {
+          messages: [...prompts, prompt].map(content => ({
+            role: "user",
+            content
+          }))
+        },
+        { headers }
+      );
 
       if (!stepsResponse.data) {
         throw new Error('No data received from chat endpoint');
@@ -226,13 +247,16 @@ export function Builder() {
       })));
 
       setLlmMessages(x => [...x, { role: "assistant", content: stepsResponse.data.response }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error initializing:', error);
-      setError(true);
-
-      setTimeout(() => {
-        navigate('/');
-      }, 3000);
+      if (error?.response?.status === 401) {
+        setIsSettingsOpen(true);
+      } else {
+        setError(true);
+        setTimeout(() => {
+          navigate('/');
+        }, 3000);
+      }
     }
   }
 
@@ -250,7 +274,6 @@ export function Builder() {
   const appendLog = useCallback((line: string) => {
     const clean = stripAnsi(line).trim();
     if (!clean) return;
-    // Filter out npm spinner characters
     if (/^[\\|/\-]+$/.test(clean)) return;
     setBuildLogs(prev => [...prev.slice(-200), clean]);
   }, []);
@@ -305,6 +328,12 @@ export function Builder() {
     if (!messageText) return;
 
     try {
+      const headers = getHeaders();
+      if (!headers['x-openrouter-key']) {
+        setIsSettingsOpen(true);
+        return;
+      }
+
       const newMessage = {
         role: "user" as const,
         content: messageText
@@ -312,9 +341,11 @@ export function Builder() {
 
       setUserPrompt("");
       setLoading(true);
-      const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
-        messages: [...llmMessages, newMessage]
-      });
+      const stepsResponse = await axios.post(
+        `${BACKEND_URL}/chat`, 
+        { messages: [...llmMessages, newMessage] },
+        { headers }
+      );
 
       if (!stepsResponse.data) {
         throw new Error('No data received from chat endpoint');
@@ -333,13 +364,17 @@ export function Builder() {
         status: "pending" as "pending"
       }))]);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending message:', error);
-      setError(true);
-      setTimeout(() => {
-        webContainer?.teardown();
-        navigate('/');
-      }, 3000);
+      if (error?.response?.status === 401) {
+        setIsSettingsOpen(true);
+      } else {
+        setError(true);
+        setTimeout(() => {
+          webContainer?.teardown();
+          navigate('/');
+        }, 3000);
+      }
     }
   }
 
@@ -364,6 +399,8 @@ export function Builder() {
       </div>
     );
   }
+
+  const hasKey = Boolean(getStoredApiKey());
 
   return (
     <div className="min-h-screen bg-[#030712] relative flex flex-col overflow-hidden">
@@ -395,6 +432,19 @@ export function Builder() {
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-2 transition-all cursor-pointer ${
+              hasKey
+                ? 'bg-slate-900/80 border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-400 animate-pulse'
+            }`}
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span>{hasKey ? 'API Key Configured' : 'Set API Key'}</span>
+            <span className={`w-2 h-2 rounded-full ${hasKey ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+          </button>
+
           {loading ? (
             <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-mono flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
@@ -509,6 +559,9 @@ export function Builder() {
         </div>
 
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }

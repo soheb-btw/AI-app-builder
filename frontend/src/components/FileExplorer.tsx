@@ -1,5 +1,17 @@
 import { useState } from 'react';
-import { File, ChevronRight, ChevronDown, Network } from 'lucide-react';
+import { 
+  ChevronRight, 
+  ChevronDown, 
+  Folder, 
+  FolderOpen, 
+  FileCode, 
+  FileJson, 
+  FileText, 
+  FileType, 
+  Braces, 
+  Layers,
+  File
+} from 'lucide-react';
 import { FileItem } from '../types';
 
 interface FileExplorerProps {
@@ -13,8 +25,31 @@ interface FileNodeProps {
   onFileClick: (file: FileItem) => void;
 }
 
+function getFileIcon(fileName: string) {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'tsx':
+    case 'jsx':
+      return <FileCode className="w-3.5 h-3.5 text-cyan-400" />;
+    case 'ts':
+    case 'js':
+      return <FileType className="w-3.5 h-3.5 text-blue-400" />;
+    case 'json':
+      return <FileJson className="w-3.5 h-3.5 text-amber-400" />;
+    case 'css':
+    case 'scss':
+      return <Braces className="w-3.5 h-3.5 text-pink-400" />;
+    case 'html':
+      return <Layers className="w-3.5 h-3.5 text-orange-400" />;
+    case 'md':
+      return <FileText className="w-3.5 h-3.5 text-indigo-400" />;
+    default:
+      return <File className="w-3.5 h-3.5 text-slate-400" />;
+  }
+}
+
 function FileNode({ item, depth, onFileClick }: FileNodeProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   const handleClick = () => {
     if (item.type === 'folder') {
@@ -27,26 +62,39 @@ function FileNode({ item, depth, onFileClick }: FileNodeProps) {
   return (
     <div className="select-none">
       <div
-        className="flex gap-2 items-center px-2 py-1 hover:bg-gray-800 cursor-pointer"
-        style={{ paddingLeft: `${depth * 1.5}rem` }}
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-slate-800/60 cursor-pointer text-xs font-mono transition-colors group"
+        style={{ paddingLeft: `${Math.max(depth * 0.85, 0.4)}rem` }}
         onClick={handleClick}
       >
         {item.type === 'folder' && (
-          <span className="text-gray-400">
+          <span className="text-slate-500 group-hover:text-slate-300">
             {isExpanded ? (
-              <ChevronDown className="w-4 h-4" />
+              <ChevronDown className="w-3.5 h-3.5" />
             ) : (
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             )}
           </span>
         )}
-        {!(item.type === 'folder') && (
-          <File className="w-4 h-4 text-gray-400" />
-        )}
-        <span className="text-gray-200">{item.name}</span>
+
+        <div className="shrink-0">
+          {item.type === 'folder' ? (
+            isExpanded ? (
+              <FolderOpen className="w-4 h-4 text-blue-400" />
+            ) : (
+              <Folder className="w-4 h-4 text-blue-400/70" />
+            )
+          ) : (
+            getFileIcon(item.name)
+          )}
+        </div>
+
+        <span className="text-slate-300 group-hover:text-white truncate">
+          {item.name}
+        </span>
       </div>
+
       {item.type === 'folder' && isExpanded && item.children && (
-        <div>
+        <div className="space-y-0.5 mt-0.5">
           {item.children.map((child, index) => (
             <FileNode
               key={`${child.path}-${index}`}
@@ -63,12 +111,18 @@ function FileNode({ item, depth, onFileClick }: FileNodeProps) {
 
 export function FileExplorer({ files, onFileSelect }: FileExplorerProps) {
   return (
-    <div className="h-full min-w-[200px] overflow-auto px-2 py-2 text-gray-100 text-sm border-r border-gray-700 scrollbar-hide">
-      <h2 className="flex items-center text-gray-100 border-b border-gray-700 py-[16px] px-2 gap-2">
-        <Network className='w-4 h-4' />
-        Files
-      </h2>
-      <div className="flex flex-col gap-1 pt-2">
+    <div className="h-full w-[230px] min-w-[230px] flex flex-col bg-slate-950/60 border-r border-slate-800/80">
+      <div className="flex items-center justify-between px-3 py-3 border-b border-slate-800/80 bg-slate-900/30">
+        <span className="text-xs font-semibold text-slate-400 tracking-wider uppercase font-mono flex items-center gap-2">
+          <FolderOpen className="w-4 h-4 text-blue-400" />
+          Explorer
+        </span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+          {files.length} items
+        </span>
+      </div>
+
+      <div className="flex-1 overflow-auto p-2 scrollbar-hide space-y-0.5">
         {files.map((file, index) => (
           <FileNode
             key={`${file.path}-${index}`}

@@ -11,8 +11,7 @@ import { parseXml } from '../steps';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { Loader } from '../components/Loader';
 import { Button } from '../components/Button';
-import { Upload } from 'lucide-react';
-import { SecondaryButton } from '../components/SecondaryButton';
+import { Download, Terminal, ArrowLeft, Save, Sparkles, AlertCircle } from 'lucide-react';
 import LightRays from '../components/LightRays';
 import StepInputBox from '../components/StepInputBox';
 import ToggleCodePreview from '../components/ToggleCodePreview';
@@ -23,7 +22,7 @@ export function Builder() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Bug #2 fix: Safe access to location.state — redirect if missing
+  // Safe access to location.state — redirect if missing
   const prompt = (location.state as { prompt?: string } | null)?.prompt;
   useEffect(() => {
     if (!prompt) {
@@ -65,8 +64,7 @@ export function Builder() {
 
   const { hasUnsavedChanges, handleFileChange, handleDownload } = useFileOperations();
 
-  // Bug #3 fix: Break infinite loop by only depending on steps, and using
-  // a functional update for files so `files` is not in the dep array
+  // Break infinite loop by only depending on steps
   useEffect(() => {
     if (steps.length === 0) return;
 
@@ -89,7 +87,6 @@ export function Builder() {
             parsedPath = parsedPath.slice(1);
 
             if (!parsedPath.length) {
-              // final file
               const file = currentFileStructure.find(x => x.path === currentFolder);
               if (!file) {
                 currentFileStructure.push({
@@ -121,12 +118,7 @@ export function Builder() {
       return originalFiles;
     });
 
-    // Bug #22 fix: Only set selectedFile if nothing is currently selected
-    setSelectedFile(prev => {
-      if (prev) return prev;
-      // Will pick the first file once files state updates; for now return null
-      return null;
-    });
+    setSelectedFile(prev => prev || null);
 
     setSteps(prevSteps => prevSteps.map((s: Step) => ({
       ...s,
@@ -134,7 +126,7 @@ export function Builder() {
     })));
   }, [steps]);
 
-  // Bug #22 fix (part 2): Select first file only when files change and nothing selected
+  // Select first file only when files change and nothing selected
   useEffect(() => {
     if (files.length > 0 && !selectedFile) {
       setSelectedFile(files[0]);
@@ -260,10 +252,9 @@ export function Builder() {
     if (!clean) return;
     // Filter out npm spinner characters
     if (/^[\\|/\-]+$/.test(clean)) return;
-    setBuildLogs(prev => [...prev.slice(-200), clean]); // keep last 200 lines
+    setBuildLogs(prev => [...prev.slice(-200), clean]);
   }, []);
 
-  // Auto-scroll logs
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [buildLogs]);
@@ -309,7 +300,6 @@ export function Builder() {
     setSelectedFile(file);
   }
 
-  // Bug #23 fix: Clear the prompt input after sending
   async function handleSend() {
     const messageText = userPrompt.trim();
     if (!messageText) return;
@@ -353,22 +343,22 @@ export function Builder() {
     }
   }
 
-  // Bug #2 fix: Early return while redirecting
   if (!prompt) {
     return null;
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 text-xl mb-4">Something went wrong!</div>
-          <div className="text-gray-400">Redirecting to homepage...</div>
+      <div className="min-h-screen bg-[#030712] flex items-center justify-center p-4">
+        <div className="text-center max-w-md bg-slate-900/90 border border-slate-800 p-8 rounded-2xl shadow-2xl backdrop-blur-xl">
+          <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4 animate-bounce" />
+          <h2 className="text-xl font-bold text-white mb-2">Build Execution Error</h2>
+          <p className="text-sm text-slate-400 mb-6">Something went wrong while communicating with the model endpoint. Redirecting to home...</p>
           <button
             onClick={() => navigate('/')}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors"
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors shadow-lg shadow-blue-600/30"
           >
-            Go to Homepage
+            Return to Homepage
           </button>
         </div>
       </div>
@@ -376,61 +366,148 @@ export function Builder() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] relative flex flex-col">
+    <div className="min-h-screen bg-[#030712] relative flex flex-col overflow-hidden">
       <LightRays />
-      <header className="flex items-center justify-between border-b border-gray-700 px-6 py-4 z-10">
-        <div onClick={() => navigate('/')} className="cursor-pointer text-xl font-semibold text-gray-100 flex items-center tracking-[2px] font-mono">BuildB<span className='text-sm'>🤖</span>t</div>
-        <SecondaryButton onClick={() => handleDownload(files)}>
-          <Upload className='w-4 h-4' /> Export
-        </SecondaryButton>
-      </header>
+      
+      {/* Workspace Header */}
+      <header className="flex items-center justify-between border-b border-slate-800/80 px-6 py-3.5 z-20 bg-slate-950/60 backdrop-blur-md">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/')} 
+            className="p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+            title="Back to Home"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          
+          <div className="flex items-center gap-2 font-mono text-sm font-bold text-white">
+            <Terminal className="w-4 h-4 text-blue-400" />
+            <span>BuildB<span className="text-blue-400">🤖</span>t</span>
+          </div>
 
-      <div className="flex max-h-[calc(100vh-65px)] min-h-[calc(100vh-65px)] overflow-hidden z-10">
-        <div className='w-[300px] min-w-[300px] overflow-y-auto scrollbar-hide flex flex-col justify-between'>
-          {!(loading || !templateSet) && <StepsList steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />}
-          {(loading || !templateSet) && <Loader />}
-          {!(loading || !templateSet) && <StepInputBox userPrompt={userPrompt} setPrompt={setUserPrompt} handleSend={handleSend} />}
+          <div className="h-4 w-px bg-slate-800" />
+
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-400 truncate max-w-md">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="truncate italic text-slate-300">"{prompt}"</span>
+          </div>
         </div>
 
-        <div className='flex-1 p-5'>
-          <div className='flex bg-[#1e1e1e] h-full rounded-[10px] border border-gray-700'>
+        {/* Header Right Actions */}
+        <div className="flex items-center gap-3">
+          {loading ? (
+            <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-mono flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              Generating Code...
+            </span>
+          ) : (
+            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              Workspace Ready
+            </span>
+          )}
+
+          <button
+            onClick={() => handleDownload(files)}
+            className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium font-mono flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export Zip
+          </button>
+        </div>
+      </header>
+
+      {/* Main Workspace Layout */}
+      <div className="flex max-h-[calc(100vh-57px)] min-h-[calc(100vh-57px)] overflow-hidden z-10 p-3 gap-3">
+        
+        {/* Left Step Pipeline Panel */}
+        <div className="w-[320px] min-w-[320px] bg-slate-950/60 border border-slate-800/80 rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xl backdrop-blur-md">
+          <div className="flex-1 overflow-y-auto scrollbar-hide">
+            {!(loading || !templateSet) && <StepsList steps={steps} currentStep={currentStep} onStepClick={setCurrentStep} />}
+            {(loading || !templateSet) && <Loader />}
+          </div>
+          
+          {!(loading || !templateSet) && (
+            <StepInputBox userPrompt={userPrompt} setPrompt={setUserPrompt} handleSend={handleSend} />
+          )}
+        </div>
+
+        {/* Center Code / Preview Panel */}
+        <div className="flex-1 bg-slate-950/60 border border-slate-800/80 rounded-2xl overflow-hidden flex flex-col shadow-2xl backdrop-blur-md p-2">
+          
+          <div className="flex bg-slate-950/80 rounded-xl h-full border border-slate-800/80 overflow-hidden">
+            
+            {/* File Explorer */}
             <FileExplorer files={files} onFileSelect={onFileSelect} />
-            <div className='flex-1 flex flex-col h-full px-2'>
-              <div className="flex border-b border-gray-700 p-2 items-center gap-2">
-                <ToggleCodePreview activeTab={activeTab} setActiveTab={setActiveTab} loading={loading} templateSet={templateSet} spawnProcess={spawnProcess} containerLoaded={containerLoaded} setContainerLoaded={setContainerLoaded} />
-                <div className='ml-auto'>
-                 {updatedFile && <Button onClick={() => handleFileChange(files, updatedFile, setFiles)}>Save{hasUnsavedChanges.current && <span className='rounded-[50%] bg-yellow-500 ml-2 w-2 h-2 inline-block'></span>}</Button>}
+
+            {/* Code / Preview Section */}
+            <div className="flex-1 flex flex-col h-full overflow-hidden p-2">
+              
+              <div className="flex border-b border-slate-800/80 pb-2 mb-2 items-center justify-between gap-2">
+                <ToggleCodePreview 
+                  activeTab={activeTab} 
+                  setActiveTab={setActiveTab} 
+                  loading={loading} 
+                  templateSet={templateSet} 
+                  spawnProcess={spawnProcess} 
+                  containerLoaded={containerLoaded} 
+                  setContainerLoaded={setContainerLoaded} 
+                />
+
+                <div className="flex items-center gap-2">
+                  {selectedFile && (
+                    <span className="text-xs font-mono text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 truncate max-w-[200px]">
+                      {selectedFile.path}
+                    </span>
+                  )}
+
+                  {updatedFile && (
+                    <Button onClick={() => handleFileChange(files, updatedFile, setFiles)}>
+                      <div className="flex items-center gap-1.5">
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Save File</span>
+                        {hasUnsavedChanges.current && (
+                          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        )}
+                      </div>
+                    </Button>
+                  )}
                 </div>
               </div>
 
-              <div className='flex-1 h-full overflow-auto py-2'>
+              {/* View Active Tab Content */}
+              <div className="flex-1 h-full overflow-hidden">
                 {activeTab === 'code' && (
                   <CodeEditor file={selectedFile} hasUnsavedChanges={hasUnsavedChanges} onFileChange={setUpdatedFile} />
                 )}
+
                 {activeTab === 'preview' && (
                   <PreviewFrame url={url} />
                 )}
+
                 {activeTab === 'terminal' && (
-                  <div className='h-full bg-[#0d0d0d] rounded-lg p-3 overflow-auto font-mono text-xs text-gray-300'>
+                  <div className="h-full bg-slate-950 rounded-xl p-4 overflow-auto font-mono text-xs text-slate-300 border border-slate-800 shadow-inner">
                     {buildLogs.length === 0 && (
-                      <div className='text-gray-500 italic'>No build logs yet. Click Preview to start building.</div>
+                      <div className="text-slate-500 italic">No terminal build logs recorded yet. Click the Preview tab to run WebContainer process.</div>
                     )}
                     {buildLogs.map((line, i) => (
                       <div key={i} className={`whitespace-pre-wrap leading-5 ${
                         line.startsWith('$') ? 'text-blue-400 font-semibold mt-2' :
-                        line.startsWith('✓') ? 'text-green-400' :
-                        line.startsWith('✗') ? 'text-red-400' :
-                        line.includes('WARN') ? 'text-yellow-400' :
-                        line.includes('ERR') ? 'text-red-400' : ''
+                        line.startsWith('✓') ? 'text-emerald-400 font-semibold' :
+                        line.startsWith('✗') ? 'text-rose-400 font-semibold' :
+                        line.includes('WARN') ? 'text-amber-400' :
+                        line.includes('ERR') ? 'text-rose-400' : ''
                       }`}>{line}</div>
                     ))}
                     <div ref={logsEndRef} />
                   </div>
                 )}
               </div>
+
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );

@@ -53,6 +53,15 @@ export function CodeEditor({ file, onFileChange, hasUnsavedChanges }: CodeEditor
       noSyntaxValidation: true,
       noSuggestionDiagnostics: true
     });
+
+    monaco.editor.defineTheme('custom-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#030712',
+      }
+    });
   }, []);
 
   if (!file) {
@@ -81,7 +90,7 @@ export function CodeEditor({ file, onFileChange, hasUnsavedChanges }: CodeEditor
         key={file.path}
         beforeMount={handleBeforeMount}
         language={language}
-        theme="vs-dark"
+        theme="custom-dark"
         value={file.content || ''}
         onChange={handleEditorChange}
         options={options}

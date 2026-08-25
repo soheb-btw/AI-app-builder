@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import LightRays from '../components/LightRays';
 import { SettingsModal, getStoredApiKey } from '../components/SettingsModal';
 import { WelcomeDemoModal } from '../components/WelcomeDemoModal';
+import { ApiKeyPromptModal } from '../components/ApiKeyPromptModal';
 
 interface SuggestionItem {
   label: string;
@@ -23,6 +24,7 @@ const TEMPLATE_SUGGESTIONS: SuggestionItem[] = [
 export function Home() {
   const [prompt, setPrompt] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isApiKeyPromptOpen, setIsApiKeyPromptOpen] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const navigate = useNavigate();
@@ -32,7 +34,7 @@ export function Home() {
 
     const apiKey = getStoredApiKey();
     if (!apiKey) {
-      setIsSettingsOpen(true);
+      setIsApiKeyPromptOpen(true);
       return;
     }
 
@@ -70,8 +72,8 @@ export function Home() {
 
       {/* Top Navbar */}
       <header className="w-full px-8 py-5 flex items-center justify-between z-20 relative border-b border-white/5 bg-slate-950/40 backdrop-blur-md">
-        <div 
-          onClick={() => navigate('/')} 
+        <div
+          onClick={() => navigate('/')}
           className="cursor-pointer text-xl font-bold tracking-tight text-white flex items-center gap-2 font-mono group"
         >
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform">
@@ -79,15 +81,14 @@ export function Home() {
           </div>
           <span>BuildB<span className="text-blue-400">🤖</span>t</span>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-2 transition-all cursor-pointer ${
-              hasKey
+            className={`px-3 py-1.5 rounded-xl border text-xs font-mono flex items-center gap-2 transition-all cursor-pointer ${hasKey
                 ? 'bg-slate-900/80 border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'
                 : 'bg-amber-500/10 border-amber-500/30 text-amber-400 animate-pulse'
-            }`}
+              }`}
           >
             <Key className="w-3.5 h-3.5" />
             <span>{hasKey ? 'API Key Configured' : 'Set API Key'}</span>
@@ -103,7 +104,7 @@ export function Home() {
 
       {/* Main Container */}
       <div className="max-w-4xl mx-auto px-4 z-10 py-16 flex flex-col items-center">
-        
+
         {/* Badge */}
         <div className="mb-6 px-4 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 backdrop-blur-md flex items-center gap-2 text-xs text-slate-300 shadow-xl">
           <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" style={{ animationDuration: '4s' }} />
@@ -129,7 +130,7 @@ export function Home() {
                 placeholder="Describe the website or web application you want BuildBot to create..."
                 className="w-full h-36 bg-transparent text-slate-100 placeholder-slate-500 text-sm focus:outline-none resize-none scrollbar-hide pr-14 leading-relaxed font-sans"
               />
-              
+
               <div className="flex items-center justify-between pt-3 border-t border-slate-900 mt-2">
                 <span className="text-xs text-slate-500 font-mono flex items-center gap-1">
                   Press <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">⌘ / Ctrl</kbd> + <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Enter</kbd> to submit
@@ -146,13 +147,13 @@ export function Home() {
                   >
                     {/* Shimmer effect */}
                     <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(59,130,246,0.1) 50%, transparent 100%)', animation: 'shimmer 1.5s infinite' }} />
-                    
+
                     {/* Pulsing Dot */}
                     <span className="relative flex h-2 w-2 mr-0.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
                     </span>
-                    
+
                     <Play className="w-4 h-4 text-blue-400 group-hover:text-blue-300 transition-colors" fill="currentColor" />
                     <span className="relative z-10">Watch Demo</span>
                   </button>
@@ -160,11 +161,10 @@ export function Home() {
                   <button
                     type="submit"
                     disabled={!prompt.trim()}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 shadow-lg ${
-                      prompt.trim()
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 shadow-lg ${prompt.trim()
                         ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/30 cursor-pointer scale-100'
                         : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'
-                    }`}
+                      }`}
                     title="Generate Project"
                   >
                     <span>Build Now</span>
@@ -176,10 +176,33 @@ export function Home() {
           </div>
         </form>
 
+        {/* Read-Only Demo Mode Actions */}
+        <div className="w-full max-w-2xl mb-8 flex flex-col items-center">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center mb-3 font-mono">
+            Zero-Cost Instant Demos
+          </div>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button
+              onClick={() => navigate('/builder', { state: { prompt: "Create a modern Todo app with React & Tailwind", isDemo: true, demoType: 'todo' } })}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500 hover:text-white transition-all cursor-pointer text-sm font-medium"
+            >
+              <Layout className="w-4 h-4" />
+              Try Demo: To-Do App
+            </button>
+            <button
+              onClick={() => navigate('/builder', { state: { prompt: "Design a sleek Weather App dashboard", isDemo: true, demoType: 'weather' } })}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all cursor-pointer text-sm font-medium"
+            >
+              <Sparkles className="w-4 h-4" />
+              Try Demo: Weather App
+            </button>
+          </div>
+        </div>
+
         {/* Suggestion Cards Grid */}
         <div className="w-full max-w-2xl">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center mb-4 font-mono">
-            Or try one of these templates
+            Or build custom apps from templates
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {TEMPLATE_SUGGESTIONS.map((item, index) => {
@@ -234,13 +257,13 @@ export function Home() {
           <div className="relative group max-w-4xl mx-auto">
             {/* Animated gradient border */}
             <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 opacity-60 group-hover:opacity-100 transition-opacity duration-500 blur-[1px]" />
-            
+
             {/* Outer glow effect */}
             <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-blue-600/10 via-purple-600/10 to-pink-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-2xl" />
 
             {/* Video Frame */}
             <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-800/80">
-              
+
               {/* Fake Browser Chrome */}
               <div className="flex items-center gap-2 px-4 py-3 bg-slate-900/90 border-b border-slate-800/60">
                 <div className="flex gap-1.5">
@@ -266,9 +289,8 @@ export function Home() {
                   onPause={handleVideoPause}
                   onEnded={handleVideoPause}
                   playsInline
-                  // src="/demo.mp4"  ← Uncomment and set path when video is ready
+                // src="/demo.mp4"
                 >
-                  {/* <source src="/demo.mp4" type="video/mp4" /> */}
                 </video>
 
                 {/* Placeholder overlay (shown when no video / video paused) */}
@@ -276,12 +298,12 @@ export function Home() {
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     {/* Decorative background pattern */}
                     <div className="absolute inset-0 bg-grid-pattern opacity-30" />
-                    
+
                     {/* Pulsing rings behind the play button */}
                     <div className="relative">
                       <div className="absolute inset-0 w-20 h-20 -m-2 rounded-full bg-blue-500/20 animate-ping" style={{ animationDuration: '2s' }} />
                       <div className="absolute inset-0 w-20 h-20 -m-2 rounded-full bg-blue-500/10 animate-ping" style={{ animationDuration: '3s' }} />
-                      
+
                       {/* Play Button */}
                       <button
                         onClick={handlePlayVideo}
@@ -321,6 +343,11 @@ export function Home() {
 
       {/* Settings Modal */}
       <WelcomeDemoModal />
+      <ApiKeyPromptModal
+        isOpen={isApiKeyPromptOpen}
+        onClose={() => setIsApiKeyPromptOpen(false)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+      />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
       {/* Footer */}

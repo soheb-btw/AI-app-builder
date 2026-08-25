@@ -18,6 +18,7 @@ import ToggleCodePreview from '../components/ToggleCodePreview';
 import { useBuilderState } from '../hooks/useBuilderState';
 import { useFileOperations } from '../hooks/useFileOperations';
 import { SettingsModal, getStoredApiKey, getStoredModel } from '../components/SettingsModal';
+import { todoAppDemo, weatherAppDemo, baseReactTemplate } from '../demoData';
 
 export function Builder() {
   const location = useLocation();
@@ -25,6 +26,8 @@ export function Builder() {
 
   // Safe access to location.state — redirect if missing
   const prompt = (location.state as { prompt?: string } | null)?.prompt;
+  const isDemo = (location.state as { isDemo?: boolean } | null)?.isDemo;
+  const demoType = (location.state as { demoType?: string } | null)?.demoType;
   useEffect(() => {
     if (!prompt) {
       navigate('/', { replace: true });
@@ -193,6 +196,23 @@ export function Builder() {
 
   async function init() {
     if (!prompt) return;
+
+    if (isDemo) {
+      const demoData = demoType === 'weather' ? weatherAppDemo : todoAppDemo;
+      setTemplateSet(true);
+      
+      // Parse the base React template into steps, just like the backend would
+      const baseSteps = parseXml(baseReactTemplate).map((x: Step) => ({
+        ...x,
+        status: "pending" as const
+      }));
+
+      // Combine base boilerplate steps with the custom demo app steps
+      setSteps([...baseSteps, ...demoData.steps.map(s => ({ ...s, status: "pending" as const }))]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const headers = getHeaders();
       if (!headers['x-openrouter-key']) {
@@ -326,6 +346,11 @@ export function Builder() {
   async function handleSend() {
     const messageText = userPrompt.trim();
     if (!messageText) return;
+
+    if (isDemo) {
+      alert("You are in Demo Mode.\n\nTo build custom apps or modify this one, please return home and configure your OpenRouter API key.");
+      return;
+    }
 
     try {
       const headers = getHeaders();

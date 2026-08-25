@@ -42,24 +42,22 @@ export function WelcomeDemoModal() {
   if (!isOpen && !isClosing) return null;
 
   return (
-    <div 
-      className={`fixed inset-0 z-[100] flex items-center justify-center pointer-events-none transition-all duration-800 ease-in-out ${
-        isClosing ? 'bg-transparent' : 'bg-slate-950/60 backdrop-blur-sm'
-      }`}
+    <div
+      className={`fixed inset-0 z-[100] flex items-center justify-center pointer-events-none transition-all duration-800 ease-in-out ${isClosing ? 'bg-transparent' : 'bg-slate-950/60 backdrop-blur-sm'
+        }`}
     >
-      <div 
-        className={`relative w-full max-w-7xl mx-4 pointer-events-auto transition-all duration-800 origin-center ${
-          isClosing 
+      <div
+        className={`relative w-full max-w-7xl mx-4 pointer-events-auto transition-all duration-800 origin-center ${isClosing
             ? 'opacity-0 scale-50 translate-y-[50vh]' // Animates down and shrinks
             : 'opacity-100 scale-100 translate-y-0'
-        }`}
+          }`}
       >
         {/* Animated border glow */}
         <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-r from-blue-500/50 via-purple-500/50 to-pink-500/50 opacity-100 blur-[2px]" />
-        
+
         {/* Modal Container */}
         <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl shadow-blue-500/20">
-          
+
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-slate-900/90 border-b border-slate-800/60">
             <div className="flex items-center gap-2">
@@ -73,7 +71,7 @@ export function WelcomeDemoModal() {
                 Quick Demo
               </div>
             </div>
-            <button 
+            <button
               onClick={handleClose}
               className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
             >
@@ -89,17 +87,17 @@ export function WelcomeDemoModal() {
               onPause={handleVideoPause}
               onEnded={handleVideoPause}
               playsInline
-              // src="/demo.mp4"
+            // src="/demo.mp4"
             />
 
             {!isVideoPlaying && (
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <div className="absolute inset-0 bg-grid-pattern opacity-30" />
-                
+
                 <div className="relative">
                   <div className="absolute inset-0 w-20 h-20 -m-2 rounded-full bg-blue-500/20 animate-ping" style={{ animationDuration: '2s' }} />
                   <div className="absolute inset-0 w-20 h-20 -m-2 rounded-full bg-blue-500/10 animate-ping" style={{ animationDuration: '3s' }} />
-                  
+
                   <button
                     onClick={handlePlayVideo}
                     className="relative w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-blue-500/30 hover:scale-110 hover:shadow-blue-500/50 transition-all duration-300 cursor-pointer z-10"

@@ -320,7 +320,7 @@ export function Builder() {
 
     try {
       appendLog('$ npm install');
-      const installProcess = await webContainer.spawn('npm', ['install']);
+      const installProcess = await webContainer.spawn('npm', ['install', '--prefer-offline', '--no-audit', '--no-fund']);
       installProcess.output.pipeTo(new WritableStream({
         write(data) {
           appendLog(data);

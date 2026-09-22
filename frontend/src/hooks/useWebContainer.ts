@@ -1,34 +1,41 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { WebContainer } from '@webcontainer/api';
 
+// Module-level singleton — WebContainer only allows one boot() per page
+let webcontainerInstance: WebContainer | null = null;
+let bootPromise: Promise<WebContainer> | null = null;
+
+async function getWebContainer(): Promise<WebContainer> {
+    if (webcontainerInstance) return webcontainerInstance;
+
+    if (!bootPromise) {
+        bootPromise = WebContainer.boot().then(instance => {
+            webcontainerInstance = instance;
+            return instance;
+        }).catch(error => {
+            bootPromise = null;
+            throw error;
+        });
+    }
+
+    return bootPromise;
+}
+
 export function useWebContainer() {
-    const [webcontainer, setWebcontainer] = useState<WebContainer>();
-    const isBooting = useRef(false);
+    const [webcontainer, setWebcontainer] = useState<WebContainer | undefined>(
+        webcontainerInstance ?? undefined
+    );
 
     useEffect(() => {
-        async function main() {
-            // Prevent double-boot with a ref guard (not state, to avoid re-renders)
-            if (isBooting.current || webcontainer) return;
-            isBooting.current = true;
+        if (webcontainer) return;
 
-            try {
-                const webcontainerInstance = await WebContainer.boot();
-                setWebcontainer(webcontainerInstance);
-            } catch (error) {
+        getWebContainer()
+            .then(setWebcontainer)
+            .catch(error => {
                 console.error("Failed to boot WebContainer:", error);
-                isBooting.current = false;
-            }
-        }
-        
-        main();
-    }, []); // Only run once on mount — no dependency on webcontainer
+            });
+    }, []);
 
-    // Cleanup on unmount only
-    useEffect(() => {
-        return () => {
-            webcontainer?.teardown();
-        };
-    }, [webcontainer]);
-
+    // Don't teardown on unmount — singleton is reused across navigations
     return webcontainer;
 }

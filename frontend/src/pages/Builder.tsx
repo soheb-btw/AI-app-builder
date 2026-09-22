@@ -291,7 +291,7 @@ export function Builder() {
     init();
 
     return () => {
-      webContainer?.teardown();
+      // WebContainer is a singleton — don't teardown on unmount
     }
   }, [])
 
@@ -403,7 +403,6 @@ export function Builder() {
       } else {
         setError(true);
         setTimeout(() => {
-          webContainer?.teardown();
           navigate('/');
         }, 3000);
       }

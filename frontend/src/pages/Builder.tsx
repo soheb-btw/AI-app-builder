@@ -40,6 +40,7 @@ export function Builder() {
   const [containerLoaded, setContainerLoaded] = useState(false);
   const [lastPackageJson, setLastPackageJson] = useState<string>("");
   const isSpawning = useRef(false);
+  const filesMounted = useRef(false);
   const [buildLogs, setBuildLogs] = useState<string[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -180,23 +181,26 @@ export function Builder() {
       return mountStructure;
     };
 
-    const mountStructure = createMountStructure(files);
-    webContainer?.mount(mountStructure);
-  }, [files, webContainer]);
+    if (!webContainer || files.length === 0) return;
 
-  useEffect(() => {
-    const packageFile = files.find(f => f.path === "/package.json");
-    if (packageFile?.content && packageFile.content !== lastPackageJson) {
-      setLastPackageJson(packageFile.content);
+    const mountStructure = createMountStructure(files);
+    webContainer.mount(mountStructure).then(() => {
+      filesMounted.current = true;
+
+      // After mount completes, check if we should spawn
+      const packageFile = files.find(f => f.path === "/package.json");
+      if (packageFile?.content && packageFile.content !== lastPackageJson) {
+        setLastPackageJson(packageFile.content);
+      }
       if (containerLoaded) {
         spawnProcess();
       }
-    }
-  }, [files, containerLoaded]);
+    });
+  }, [files, webContainer]);
 
-  // Ensure spawnProcess runs once webContainer is ready if preview was already requested
+  // Trigger spawnProcess when user clicks Preview (containerLoaded becomes true)
   useEffect(() => {
-    if (containerLoaded && webContainer && files.length > 0) {
+    if (containerLoaded && webContainer && filesMounted.current) {
       spawnProcess();
     }
   }, [containerLoaded, webContainer]);

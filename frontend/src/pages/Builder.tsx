@@ -194,6 +194,13 @@ export function Builder() {
     }
   }, [files, containerLoaded]);
 
+  // Ensure spawnProcess runs once webContainer is ready if preview was already requested
+  useEffect(() => {
+    if (containerLoaded && webContainer && files.length > 0) {
+      spawnProcess();
+    }
+  }, [containerLoaded, webContainer]);
+
   async function init() {
     if (!prompt) return;
 
